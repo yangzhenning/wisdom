@@ -52,14 +52,12 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
 
     @Override
     protected void loadRemoteConfig(ClientConfig config, WisdomListener wisdomListener) throws Exception {
-        if (null != config) {
-            if (null == provider) {
-                provider = new ZooKeeperProvider(
-                        UrlChange.getUrl(ConfigConstants.CLIENT_ROLE, config.getAppId(), config.getIp(), config.getRegisterPath()),
-                        wisdomListener);
-                provider.register();
-                pullRemoteConfigToRepository(provider);
-            }
+        if (null != config && null == provider) {
+            provider = new ZooKeeperProvider(
+                    UrlChange.getUrl(ConfigConstants.CLIENT_ROLE, config.getAppId(), config.getIp(), config.getRegisterPath()),
+                    wisdomListener);
+            provider.register();
+            pullRemoteConfigToRepository(provider);
         }
     }
 

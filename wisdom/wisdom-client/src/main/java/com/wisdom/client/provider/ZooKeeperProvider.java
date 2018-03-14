@@ -46,7 +46,7 @@ public class ZooKeeperProvider extends AbstractProvider implements WisdomEventPu
             LOGGER.info("zookeeper start successful");
             this.client = client;
             clientRootCheck();
-            this.isRegister = true;
+            this.isStart = true;
             this.listener = listener;
             this.publisher = this;
             zooKeeperNodelistener();

@@ -2,6 +2,7 @@ package com.wisdom.client.context;
 
 import com.google.common.base.Strings;
 import com.wisdom.change.UrlChange;
+import com.wisdom.client.annotation.WisdomComponent;
 import com.wisdom.client.annotation.WisdomValue;
 import com.wisdom.client.bean.AbstractWisdomBeanFactory;
 import com.wisdom.client.bean.AutowireCapableWisdomBeanFactory;
@@ -64,10 +65,13 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
 
 
     public void initAssignment(Object object, String name) throws Exception {
+        if (!object.getClass().isAnnotationPresent(WisdomComponent.class)) {
+            return;
+        }
+
         Field[] fields = object.getClass().getDeclaredFields();
-        Map<Field, FieldWisdomInfo> fieldWisdomInfoMap = new HashMap<Field, FieldWisdomInfo>();
+        Map<Field, FieldWisdomInfo> fieldWisdomInfoMap = new HashMap<>();
         HashSet<String> referenceProperty = new HashSet<String>();
-        FieldWisdomInfo fieldWisdomInfo = null;
         StringBuilder sb = null;
         for (Field field : fields) {
             field.setAccessible(true);
@@ -75,30 +79,52 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
             if (null == wisdomValue) {
                 continue;
             }
+
+            // build wisdomn beanName
             sb = new StringBuilder();
             sb.append(wisdomValue.propertyName()).append(PREFIX).append(wisdomValue.version());
-            ServiceConfig serviceConfig = this.wisdomBeanFactory.getBean(sb.toString());
-            String value = null;
-            if (null == serviceConfig || Strings.isNullOrEmpty(serviceConfig.getApplicationValue())) {
-                value = wisdomValue.value();
-            } else {
-                value = serviceConfig.getApplicationValue();
-            }
+            String beanName = sb.toString();
 
-            field.set(object, value);
-            LOGGER.info("spring beanName : {} field :{} set value : {}", name, field.getName(), value);
-            fieldWisdomInfo = new FieldWisdomInfo();
-            fieldWisdomInfo.setCanModify(wisdomValue.canModify());
-            fieldWisdomInfo.setCurrentValue(value);
-            fieldWisdomInfo.setDescription(wisdomValue.description());
-            fieldWisdomInfo.setOldValue(value);
-            fieldWisdomInfo.setPropertyName(wisdomValue.propertyName());
-            fieldWisdomInfo.setUpdateTime(new Timestamp(System.currentTimeMillis()));
-            fieldWisdomInfo.setVersion(wisdomValue.version());
-            fieldWisdomInfoMap.put(field, fieldWisdomInfo);
-            referenceProperty.add(sb.toString());
+            // reflect assignment
+            String value = setValue(object, field, wisdomValue, beanName);
+
+            // collect field
+            collectField(fieldWisdomInfoMap, field, wisdomValue, value);
+
+            // collect property
+            referenceProperty.add(beanName);
         }
 
+        // create wisdom bean
+        createWisdomBean(fieldWisdomInfoMap, referenceProperty, object, name);
+    }
+
+    private String setValue(Object object, Field field, WisdomValue wisdomValue, String beanName) throws Exception {
+        ServiceConfig serviceConfig = this.wisdomBeanFactory.getBean(beanName);
+        String value = null;
+        if (null == serviceConfig || Strings.isNullOrEmpty(serviceConfig.getApplicationValue())) {
+            value = wisdomValue.value();
+        } else {
+            value = serviceConfig.getApplicationValue();
+        }
+        field.set(object, value);
+        LOGGER.info("field :{} set value : {}", field.getName(), value);
+        return value;
+    }
+
+    private void collectField(Map<Field, FieldWisdomInfo> fieldWisdomInfoMap, Field field, WisdomValue wisdomValue, String setValue) {
+        FieldWisdomInfo fieldWisdomInfo = new FieldWisdomInfo();
+        fieldWisdomInfo.setCanModify(wisdomValue.canModify());
+        fieldWisdomInfo.setCurrentValue(setValue);
+        fieldWisdomInfo.setDescription(wisdomValue.description());
+        fieldWisdomInfo.setOldValue(setValue);
+        fieldWisdomInfo.setPropertyName(wisdomValue.propertyName());
+        fieldWisdomInfo.setUpdateTime(new Timestamp(System.currentTimeMillis()));
+        fieldWisdomInfo.setVersion(wisdomValue.version());
+        fieldWisdomInfoMap.put(field, fieldWisdomInfo);
+    }
+
+    private void createWisdomBean(Map<Field, FieldWisdomInfo> fieldWisdomInfoMap, HashSet<String> referenceProperty, Object object, String name) {
         if (fieldWisdomInfoMap.size() > 0) {
             // 一个object
             WisdomBean wisdomBean = new WisdomBean();
@@ -110,9 +136,6 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
             wisdomBean.setReferenceProperty(referenceProperty);
             this.getWisdomApplicationContext().add(wisdomBean);
             LOGGER.info("spring beanName : {}, wisdom object : {} add wisdomContext successful", name, wisdomBean);
-        } else {
-            fieldWisdomInfoMap = null;
-            referenceProperty = null;
         }
     }
 

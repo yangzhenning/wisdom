@@ -57,7 +57,7 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
                 provider = new ZooKeeperProvider(
                         UrlChange.getUrl(ConfigConstants.CLIENT_ROLE, config.getAppId(), config.getIp(), config.getRegisterPath()),
                         wisdomListener);
-                provider.register(provider.getUrl());
+                provider.register();
                 pullRemoteConfigToRepository(provider);
             }
         }
@@ -131,7 +131,6 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
 
     private void createWisdomBean(Map<Field, FieldWisdomInfo> fieldWisdomInfoMap, HashSet<String> referenceProperty, Object object, String name) {
         if (fieldWisdomInfoMap.size() > 0) {
-            // 一个object
             WisdomBean wisdomBean = new WisdomBean();
             wisdomBean.setRegisterTime(new Timestamp(System.currentTimeMillis()));
             wisdomBean.setSpringBeanName(name);

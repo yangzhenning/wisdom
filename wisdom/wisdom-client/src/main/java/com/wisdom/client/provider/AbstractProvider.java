@@ -1,6 +1,7 @@
 package com.wisdom.client.provider;
 
 import com.wisdom.common.model.Url;
+import org.springframework.util.Assert;
 
 public abstract class AbstractProvider implements Register, Pull {
 
@@ -12,7 +13,8 @@ public abstract class AbstractProvider implements Register, Pull {
         this.url = url;
     }
 
-    public void register(Url url) throws Exception {
+    public void register() throws Exception {
+        Assert.notNull(url, "url must be not null");
         if (isStart) {
             doRegister();
         }

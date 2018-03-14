@@ -101,15 +101,20 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
 
     private String setValue(Object object, Field field, WisdomValue wisdomValue, String beanName) throws Exception {
         ServiceConfig serviceConfig = this.wisdomBeanFactory.getBean(beanName);
-        String value = null;
+
+        /**
+         *  we don't think there should be an empty attribute
+         *  but if the empty property is configured remotely, we take the annotations configuration
+         */
         if (null == serviceConfig || Strings.isNullOrEmpty(serviceConfig.getApplicationValue())) {
-            value = wisdomValue.value();
-        } else {
-            value = serviceConfig.getApplicationValue();
+            field.set(object, wisdomValue.value());
+            LOGGER.info("field :{} set value : {} from local", field.getName(), wisdomValue.value());
+            return wisdomValue.value();
         }
-        field.set(object, value);
-        LOGGER.info("field :{} set value : {}", field.getName(), value);
-        return value;
+
+        field.set(object, serviceConfig.getApplicationValue());
+        LOGGER.info("field :{} set value : {} from  remote", field.getName(), serviceConfig.getApplicationValue());
+        return serviceConfig.getApplicationValue();
     }
 
     private void collectField(Map<Field, FieldWisdomInfo> fieldWisdomInfoMap, Field field, WisdomValue wisdomValue, String setValue) {

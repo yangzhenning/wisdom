@@ -78,7 +78,7 @@ public class PropertieWisdomApplicationContext extends AbstractWisdomApplication
                 continue;
             }
 
-            // build wisdomn beanName
+            // build wisdom beanName
             sb = new StringBuilder();
             sb.append(wisdomValue.propertyName()).append(PREFIX).append(wisdomValue.version());
             String beanName = sb.toString();

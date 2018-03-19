@@ -28,7 +28,7 @@ public class ZooKeeperProvider extends AbstractProvider implements WisdomEventPu
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ZooKeeperProvider.class.getName());
 
-    private final Object object = new Object();
+    protected final Object monitor = new Object();
 
     private final transient CuratorFramework client;
 
@@ -40,7 +40,7 @@ public class ZooKeeperProvider extends AbstractProvider implements WisdomEventPu
 
     public ZooKeeperProvider(Url url, WisdomListener listener) throws Exception {
         super(url);
-        synchronized (AbstractProvider.class) {
+        synchronized (monitor) {
             CuratorFramework client = CuratorFrameworkFactory.newClient(getUrl().getRegisterPath(), new RetryNTimes(10, 5000));
             client.start();
             LOGGER.info("zookeeper start successful");
@@ -60,8 +60,10 @@ public class ZooKeeperProvider extends AbstractProvider implements WisdomEventPu
 
     @Override
     public void close() throws Exception {
-        treeCache.close();
-        client.close();
+        synchronized (monitor) {
+            treeCache.close();
+            client.close();
+        }
     }
 
     @Override
@@ -109,29 +111,33 @@ public class ZooKeeperProvider extends AbstractProvider implements WisdomEventPu
         if (null == treeCache) {
             treeCache = new TreeCache(client, getUrl().getSubscribeNode());
             treeCache.start();
-            TreeCacheListener treeCacheListener = new TreeCacheListener() {
-                public void childEvent(CuratorFramework client, TreeCacheEvent event) throws Exception {
-                    LOGGER.info("request Zookeeper event is {}", event);
-                    synchronized (object) {
-                        if (null == event || null == event.getData() || null == event.getData().getPath()
-                                || !event.getData().getPath().startsWith(getUrl().getSubscribeNode())) {
-                            return;
-                        }
+            try {
+                TreeCacheListener treeCacheListener = new TreeCacheListener() {
+                    public void childEvent(CuratorFramework client, TreeCacheEvent event) throws Exception {
+                        LOGGER.info("request Zookeeper event is {}", event);
+                        synchronized (monitor) {
+                            if (null == event || null == event.getData() || null == event.getData().getPath()
+                                    || !event.getData().getPath().startsWith(getUrl().getSubscribeNode())) {
+                                return;
+                            }
 
-                        final TreeCacheEvent requestEvent = event;
+                            final TreeCacheEvent requestEvent = event;
 
-                        if (TreeCacheEvent.Type.NODE_ADDED.equals(requestEvent.getType())
-                                || TreeCacheEvent.Type.NODE_UPDATED.equals(requestEvent.getType())) {
-                            if (!Strings.isNullOrEmpty(ZooKeeperProvider.securityValidation(requestEvent))) {
-                                Config config = JSON.parseObject(new java.lang.String(requestEvent.getData().getData()), Config.class);
-                                publisher.publishEvent(new NodeUpdateEvent(config));
+                            if (TreeCacheEvent.Type.NODE_ADDED.equals(requestEvent.getType())
+                                    || TreeCacheEvent.Type.NODE_UPDATED.equals(requestEvent.getType())) {
+                                if (!Strings.isNullOrEmpty(ZooKeeperProvider.securityValidation(requestEvent))) {
+                                    Config config = JSON.parseObject(new java.lang.String(requestEvent.getData().getData()), Config.class);
+                                    publisher.publishEvent(new NodeUpdateEvent(config));
+                                }
                             }
                         }
                     }
-                }
-            };
-            treeCache.getListenable().addListener(treeCacheListener);
-            LOGGER.info("add treeCache Listener successful");
+                };
+                treeCache.getListenable().addListener(treeCacheListener);
+                LOGGER.info("add treeCache Listener successful");
+            } catch (Exception e) {
+                LOGGER.error("process treeCacheListener error", e);
+            }
         }
     }
 

@@ -25,10 +25,4 @@ public abstract class AbstractProvider implements Register, Pull {
     public Url getUrl() {
         return url;
     }
-
-
-
-
-
-
 }
